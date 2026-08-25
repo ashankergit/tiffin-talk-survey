@@ -504,8 +504,10 @@
       },
       validate: function (a) {
         var ranks = a.concernRanks || {};
-        if (Object.keys(ranks).length < CONCERN_ITEMS.length) return "Please rank every item (tap each one once).";
-        if (ranks.other && (!a.concernOther || !a.concernOther.trim())) return "Please specify what “Other” means for you.";
+        var required = CONCERN_ITEMS.filter(function (item) { return item.id !== "other"; }).length;
+        if (Object.keys(ranks).filter(function (id) { return id !== "other"; }).length < required) {
+          return "Please rank every item (tap each one once) &mdash; “Other” is optional.";
+        }
         return null;
       }
     },
@@ -518,12 +520,11 @@
           '<h2 class="step-title">Here\'s a concept we\'re considering</h2>' +
           '<div class="concept-box">Imagine a kids’ vitamin brand that’s radically transparent &mdash; publishing every ingredient and dose on its website with the actual science behind it &mdash; is designed around the real nutrition gaps common in Indian children’s diets, and never makes exaggerated height or brain claims.</div>' +
           field_radio("appeal", "How appealing is this concept to you?", APPEAL_OPTIONS, a.appeal, true) +
-          field_textarea("appealReason", "What’s the main reason for your answer?", a.appealReason, "Whatever comes to mind")
+          field_textarea("appealReason", "What’s the main reason for your answer? (optional)", a.appealReason, "Whatever comes to mind")
         );
       },
       validate: function (a) {
         if (!a.appeal) return "Please pick how appealing this feels.";
-        if (!a.appealReason || !a.appealReason.trim()) return "A short reason helps us a lot &mdash; even one line.";
         return null;
       }
     },
@@ -533,18 +534,15 @@
       render: function (a) {
         var yes = usesSupplement(a);
         var title = yes
-          ? "What would make you hesitant to switch to a new brand like this?"
-          : "What would make you consider trying a supplement like this for the first time?";
+          ? "What would make you hesitant to switch to a new brand like this? (optional)"
+          : "What would make you consider trying a supplement like this for the first time? (optional)";
         return (
           '<div class="eyebrow">Honest friction</div>' +
           '<h2 class="step-title">' + title + '</h2>' +
           field_textarea("barrier", null, a.barrier, "Type freely &mdash; this is the part we read most closely")
         );
       },
-      validate: function (a) {
-        if (!a.barrier || !a.barrier.trim()) return "Please share at least a line &mdash; this helps us the most.";
-        return null;
-      }
+      validate: function () { return null; }
     },
     {
       id: "pricing",
