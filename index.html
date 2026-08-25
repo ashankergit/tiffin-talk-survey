@@ -578,7 +578,8 @@
           '<h2 class="step-title">Can we reach out again as we build this?</h2>' +
           '<p class="step-sub">Totally optional &mdash; skip if you’d rather not.</p>' +
           field_text("contactName", "Name", a.contactName, "Optional") +
-          field_text("contactInfo", "WhatsApp number or email", a.contactInfo, "Optional")
+          field_text("contactInfo", "WhatsApp number or email", a.contactInfo, "Optional") +
+          '<p class="hint">We only use this to follow up about this project &mdash; never shared with anyone else, no spam.</p>'
         );
       },
       validate: function () { return null; }
