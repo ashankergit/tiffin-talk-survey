@@ -1,0 +1,33 @@
+name: Supabase keep-alive
+
+# Supabase pauses free-tier projects after 7 days without activity, and a
+# paused project makes every survey submission fail. This queries the database
+# twice a week so it never goes quiet that long. If the project is already
+# paused, the request fails, the run goes red, and GitHub emails the repo owner.
+on:
+  schedule:
+    - cron: "17 3 * * 1,4" # Mon + Thu, 03:17 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query survey_responses through the public REST API
+        env:
+          SUPABASE_URL: https://evqwpzjqqnbrfjhorkyb.supabase.co
+          # Same publishable key already embedded in index.html. Safe to be
+          # public: anon has INSERT only, no SELECT.
+          SUPABASE_KEY: sb_publishable_jml-i47gf4-VgiCBRn9_8A_gUQcJJYD
+        # anon can't read the table, so a healthy database answers this with
+        # Postgres error 42501 (permission denied). That error only comes back
+        # if Postgres actually ran the query, which is the activity we want.
+        # A paused project returns a different error and fails the check.
+        run: |
+          body=$(curl -s --retry 3 --retry-delay 15 \
+            "$SUPABASE_URL/rest/v1/survey_responses?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+          echo "$body"
+          echo "$body" | grep -q '"42501"'
