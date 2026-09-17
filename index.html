@@ -383,6 +383,14 @@
     { id: "1", label: "Not at all appealing" }
   ];
 
+  var FORMAT_OPTIONS = [
+    { id: "gummies", label: "Gummies" },
+    { id: "chewable", label: "Chewable tablets" },
+    { id: "powder", label: "Powder (mix into water, milk or food)" },
+    { id: "syrup", label: "Syrup / drops" },
+    { id: "other", label: "Other" }
+  ];
+
   function usesSupplement(a) {
     return a.supplementUse === "regularly" || a.supplementUse === "occasionally";
   }
@@ -564,6 +572,25 @@
           var v = a[fields[i]];
           if (!v || isNaN(Number(v)) || Number(v) <= 0) return "Please fill in all four prices as numbers.";
         }
+        return null;
+      }
+    },
+    {
+      id: "format",
+      visible: function () { return true; },
+      render: function (a) {
+        var html =
+          '<div class="eyebrow">Format</div>' +
+          '<h2 class="step-title">Which format would you most prefer for your child?</h2>' +
+          field_radio("formatPref", null, FORMAT_OPTIONS, a.formatPref);
+        if (a.formatPref === "other") {
+          html += field_text("formatOther", "Please specify", a.formatOther, "Your preferred format");
+        }
+        return html;
+      },
+      validate: function (a) {
+        if (!a.formatPref) return "Please pick one option.";
+        if (a.formatPref === "other" && (!a.formatOther || !a.formatOther.trim())) return "Please specify the format.";
         return null;
       }
     },
@@ -763,6 +790,7 @@
       barrier: a.barrier || "",
       price_too_expensive: a.priceTooExpensive || "", price_expensive: a.priceExpensive || "",
       price_good_value: a.priceGoodValue || "", price_too_cheap: a.priceTooCheap || "",
+      format_pref: a.formatPref || "", format_other: a.formatOther || "",
       contact_name: a.contactName || "", contact_info: a.contactInfo || ""
     };
   }
