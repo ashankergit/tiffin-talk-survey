@@ -570,12 +570,13 @@
       render: function (a) {
         return (
           '<div class="eyebrow">Pricing</div>' +
-          '<h2 class="step-title">Thinking about that concept, help us with 4 quick prices</h2>' +
-          price_field("priceTooExpensive", "So expensive you wouldn’t consider it", a.priceTooExpensive) +
-          price_field("priceExpensive", "Feels expensive, but you’d still consider it", a.priceExpensive) +
-          price_field("priceGoodValue", "Feels like good value", a.priceGoodValue) +
+          '<h2 class="step-title">What would you pay for a daily multivitamin from this brand?</h2>' +
+          '<div class="concept-box">One month&rsquo;s supply, for <strong>one child</strong>.</div>' +
           price_field("priceTooCheap", "So cheap you’d worry about quality", a.priceTooCheap) +
-          '<p class="hint">All amounts are per month, in rupees.</p>'
+          price_field("priceGoodValue", "Feels like good value", a.priceGoodValue) +
+          price_field("priceExpensive", "Feels expensive, but you’d still consider it", a.priceExpensive) +
+          price_field("priceTooExpensive", "So expensive you wouldn’t consider it", a.priceTooExpensive) +
+          '<p class="hint">All amounts in rupees, per month, for one child.</p>'
         );
       },
       validate: function (a) {
