@@ -500,23 +500,11 @@
       visible: function () { return true; },
       render: function (a) {
         var ranks = a.concernRanks || {};
-        var rankedCount = Object.keys(ranks).length;
         var html =
           '<div class="eyebrow">Concerns</div>' +
           '<h2 class="step-title">Rank these by how much you worry about them for your child</h2>' +
-          '<p class="step-sub">Tap in order &mdash; 1st tap = what worries you most.</p>' +
-          '<div class="rank-meta"><span>' + rankedCount + ' of ' + CONCERN_ITEMS.length + ' ranked</span>' +
-          '<button type="button" class="reset-link" data-action="reset-ranks">Reset</button></div>' +
-          '<div class="rank-list">';
-        CONCERN_ITEMS.forEach(function (item) {
-          var rank = ranks[item.id];
-          html +=
-            '<div class="rank-item ' + (rank ? "ranked" : "") + '" data-action="toggle-rank" data-rank-id="' + item.id + '">' +
-            '<span class="rank-badge">' + (rank || "") + '</span>' +
-            '<span class="option-text">' + item.label + '</span>' +
-            '</div>';
-        });
-        html += '</div>';
+          '<p class="step-sub">Tap in order &mdash; 1st tap = what worries you most. Rank all of them.</p>' +
+          rank_block("concernRanks", CONCERN_ITEMS, ranks);
         if (ranks.other) {
           html += '<div class="other-input">' + field_text("concernOther", "Please specify “Other”", a.concernOther, "Your concern") + '</div>';
         }
@@ -524,8 +512,7 @@
       },
       validate: function (a) {
         var ranks = a.concernRanks || {};
-        var required = CONCERN_ITEMS.filter(function (item) { return item.id !== "other"; }).length;
-        if (Object.keys(ranks).filter(function (id) { return id !== "other"; }).length < required) {
+        if (missingRanks(CONCERN_ITEMS, ranks)) {
           return "Please rank every item (tap each one once) &mdash; “Other” is optional.";
         }
         return null;
@@ -592,18 +579,23 @@
       id: "format",
       visible: function () { return true; },
       render: function (a) {
+        var ranks = a.formatRanks || {};
         var html =
           '<div class="eyebrow">Format</div>' +
-          '<h2 class="step-title">Which format would you most prefer for your child?</h2>' +
-          field_radio("formatPref", null, FORMAT_OPTIONS, a.formatPref);
-        if (a.formatPref === "other") {
-          html += field_text("formatOther", "Please specify", a.formatOther, "Your preferred format");
+          '<h2 class="step-title">Rank these formats by what you’d prefer for your child</h2>' +
+          '<p class="step-sub">Tap in order &mdash; 1st tap = your top choice. Rank all of them.</p>' +
+          rank_block("formatRanks", FORMAT_OPTIONS, ranks);
+        if (ranks.other) {
+          html += '<div class="other-input">' + field_text("formatOther", "Please specify “Other”", a.formatOther, "Your preferred format") + '</div>';
         }
         return html;
       },
       validate: function (a) {
-        if (!a.formatPref) return "Please pick one option.";
-        if (a.formatPref === "other" && (!a.formatOther || !a.formatOther.trim())) return "Please specify the format.";
+        var ranks = a.formatRanks || {};
+        if (missingRanks(FORMAT_OPTIONS, ranks)) {
+          return "Please rank every format (tap each one once) &mdash; “Other” is optional.";
+        }
+        if (ranks.other && (!a.formatOther || !a.formatOther.trim())) return "Please specify the format.";
         return null;
       }
     },
@@ -669,6 +661,35 @@
       '<div class="price-row"><span class="rs">₹</span><input type="number" inputmode="numeric" min="0" data-field="' + name + '" value="' + escapeAttr(value || "") + '" placeholder="0" /></div>' +
       '</div>'
     );
+  }
+
+  function rank_block(group, items, ranks) {
+    ranks = ranks || {};
+    var html =
+      '<div class="rank-meta"><span>' + Object.keys(ranks).length + ' of ' + items.length + ' ranked</span>' +
+      '<button type="button" class="reset-link" data-action="reset-ranks" data-rank-group="' + group + '">Reset</button></div>' +
+      '<div class="rank-list">';
+    items.forEach(function (item) {
+      var rank = ranks[item.id];
+      html +=
+        '<div class="rank-item ' + (rank ? "ranked" : "") + '" data-action="toggle-rank" data-rank-group="' + group + '" data-rank-id="' + item.id + '">' +
+        '<span class="rank-badge">' + (rank || "") + '</span>' +
+        '<span class="option-text">' + item.label + '</span>' +
+        '</div>';
+    });
+    return html + '</div>';
+  }
+
+  function rankedFirst(ranks) {
+    var top = "";
+    Object.keys(ranks || {}).forEach(function (k) { if (ranks[k] === 1) top = k; });
+    return top;
+  }
+
+  function missingRanks(items, ranks) {
+    var required = items.filter(function (item) { return item.id !== "other"; }).length;
+    var done = Object.keys(ranks || {}).filter(function (id) { return id !== "other"; }).length;
+    return done < required;
   }
 
   function escapeHtml(str) {
@@ -749,24 +770,26 @@
         render();
       });
     });
-    var resetBtn = app.querySelector('[data-action="reset-ranks"]');
-    if (resetBtn) {
-      resetBtn.addEventListener("click", function () {
-        state.answers.concernRanks = {};
+    app.querySelectorAll('[data-action="reset-ranks"]').forEach(function (el) {
+      el.addEventListener("click", function () {
+        state.answers[el.getAttribute("data-rank-group")] = {};
         render();
       });
-    }
+    });
     app.querySelectorAll('[data-action="toggle-rank"]').forEach(function (el) {
       el.addEventListener("click", function () {
+        var group = el.getAttribute("data-rank-group");
         var id = el.getAttribute("data-rank-id");
-        var ranks = state.answers.concernRanks || {};
+        var ranks = state.answers[group] || {};
         if (ranks[id]) {
           delete ranks[id];
+          Object.keys(ranks)
+            .sort(function (x, y) { return ranks[x] - ranks[y]; })
+            .forEach(function (k, i) { ranks[k] = i + 1; });
         } else {
-          var next = Object.keys(ranks).length + 1;
-          ranks[id] = next;
+          ranks[id] = Object.keys(ranks).length + 1;
         }
-        state.answers.concernRanks = ranks;
+        state.answers[group] = ranks;
         render();
       });
     });
@@ -803,7 +826,8 @@
       barrier: a.barrier || "",
       price_too_expensive: a.priceTooExpensive || "", price_expensive: a.priceExpensive || "",
       price_good_value: a.priceGoodValue || "", price_too_cheap: a.priceTooCheap || "",
-      format_pref: a.formatPref || "", format_other: a.formatOther || "",
+      format_pref: rankedFirst(a.formatRanks) || "", format_ranks: a.formatRanks || null,
+      format_other: a.formatOther || "",
       contact_name: a.contactName || "", contact_info: a.contactInfo || ""
     };
   }
