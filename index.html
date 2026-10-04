@@ -428,7 +428,8 @@
           '<div class="eyebrow">About your household</div>' +
           '<h2 class="step-title">Tell us a bit about your family</h2>' +
           field_text("city", "Which city or town do you live in?", a.city, "e.g. Pune") +
-          field_text("ages", "List the ages of all your children", a.ages, "e.g. 2, 6, 9") +
+          field_text("ages", "List the ages of all your children (separate with commas, e.g. 2, 6, 9)", a.ages, "",
+            "If more than one child is aged 2&ndash;18, pick one and answer the rest of the survey for that child.") +
           field_radio("diet", "Is your household vegetarian, non-vegetarian, or mixed?", [
             { id: "veg", label: "Vegetarian" },
             { id: "nonveg", label: "Non-vegetarian" },
@@ -467,12 +468,14 @@
           '<div class="eyebrow">Current behavior</div>' +
           '<h2 class="step-title">Which brand, and roughly how much do you spend per month?</h2>' +
           field_text("brand", "Brand name", a.brand, "e.g. Gritzo") +
-          field_text("spend", "Approx. monthly spend (₹)", a.spend, "e.g. 600")
+          price_field("spend", "Approx. monthly spend", a.spend, "e.g. 600")
         );
       },
       validate: function (a) {
         if (!a.brand || !a.brand.trim()) return "Please tell us the brand.";
-        if (!a.spend || !a.spend.trim()) return "Please give a rough monthly spend.";
+        if (badInput.spend) return "Please type the monthly spend as one number in rupees — digits only, no commas, letters or ranges (e.g. 600). If it varies, give a rough average.";
+        if (!a.spend || !a.spend.trim()) return "Please give a rough monthly spend in rupees (e.g. 600).";
+        if (Number(a.spend) < 0) return "Please enter an amount of 0 or more.";
         return null;
       }
     },
@@ -513,7 +516,7 @@
       validate: function (a) {
         var ranks = a.concernRanks || {};
         if (missingRanks(CONCERN_ITEMS, ranks)) {
-          return "Please rank every item (tap each one once) &mdash; “Other” is optional.";
+          return "Please rank every item (tap each one once) — “Other” is optional.";
         }
         return null;
       }
@@ -593,7 +596,7 @@
       validate: function (a) {
         var ranks = a.formatRanks || {};
         if (missingRanks(FORMAT_OPTIONS, ranks)) {
-          return "Please rank every format (tap each one once) &mdash; “Other” is optional.";
+          return "Please rank every format (tap each one once) — “Other” is optional.";
         }
         if (ranks.other && (!a.formatOther || !a.formatOther.trim())) return "Please specify the format.";
         return null;
@@ -616,11 +619,12 @@
     }
   ];
 
-  function field_text(name, label, value, placeholder) {
+  function field_text(name, label, value, placeholder, hint) {
     return (
       '<div class="field">' +
       (label ? '<label class="field-label">' + label + '</label>' : '') +
       '<input class="text-input" type="text" data-field="' + name + '" value="' + escapeAttr(value || "") + '" placeholder="' + escapeAttr(placeholder || "") + '" />' +
+      (hint ? '<p class="hint">' + hint + '</p>' : '') +
       '</div>'
     );
   }
@@ -654,11 +658,11 @@
     return html;
   }
 
-  function price_field(name, label, value) {
+  function price_field(name, label, value, placeholder) {
     return (
       '<div class="field">' +
       '<label class="field-label">' + label + '</label>' +
-      '<div class="price-row"><span class="rs">₹</span><input type="number" inputmode="numeric" min="0" data-field="' + name + '" value="' + escapeAttr(value || "") + '" placeholder="0" /></div>' +
+      '<div class="price-row"><span class="rs">₹</span><input type="number" inputmode="numeric" min="0" data-field="' + name + '" value="' + escapeAttr(value || "") + '" placeholder="' + escapeAttr(placeholder || "0") + '" /></div>' +
       '</div>'
     );
   }
@@ -702,6 +706,7 @@
   var state = { stepIndex: 0, answers: {} };
   var submitting = false;
   var submitError = "";
+  var badInput = {}; // number fields holding text the browser could not parse (value reads as "")
   var submittedOk = false;
 
   function activeSteps() { return STEPS.filter(function (s) { return s.visible(state.answers); }); }
@@ -752,8 +757,10 @@
     var app = document.getElementById("app");
     app.querySelectorAll('[data-field]').forEach(function (el) {
       if (el.tagName === "INPUT" && (el.type === "text" || el.type === "number")) {
+        if (el.type === "number") badInput[el.getAttribute("data-field")] = false;
         el.addEventListener("input", function () {
           state.answers[el.getAttribute("data-field")] = el.value;
+          if (el.type === "number") badInput[el.getAttribute("data-field")] = el.validity.badInput;
         });
       }
       if (el.tagName === "TEXTAREA") {
