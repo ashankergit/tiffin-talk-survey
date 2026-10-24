@@ -608,14 +608,20 @@
       render: function (a) {
         return (
           '<div class="eyebrow">Last thing</div>' +
-          '<h2 class="step-title">Can we reach out again as we build this?</h2>' +
-          '<p class="step-sub">Totally optional &mdash; skip if you’d rather not.</p>' +
+          '<h2 class="step-title">Want the results?</h2>' +
+          '<p class="step-sub">We’re sharing what parents tell us only with parents who took part. Leave your email and we’ll send them to you. Totally optional &mdash; skip if you’d rather not.</p>' +
           field_text("contactName", "Name", a.contactName, "Optional") +
-          field_text("contactInfo", "WhatsApp number or email", a.contactInfo, "Optional") +
-          '<p class="hint">We only use this to follow up about this project &mdash; never shared with anyone else, no spam.</p>'
+          field_text("contactInfo", "Email", a.contactInfo, "Optional") +
+          '<p class="hint">We only use your email to send the results and follow up about this project &mdash; never shared with anyone else, no spam.</p>'
         );
       },
-      validate: function () { return null; }
+      validate: function (a) {
+        var email = (a.contactInfo || "").trim();
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return "That doesn’t look like an email address — check it, or leave it blank.";
+        }
+        return null;
+      }
     }
   ];
 
@@ -708,6 +714,14 @@
   var submitError = "";
   var badInput = {}; // number fields holding text the browser could not parse (value reads as "")
   var submittedOk = false;
+  var SOURCE = readSource(); // channel tag from ?src=..., null for untagged links (e.g. WhatsApp forwards)
+
+  function readSource() {
+    try {
+      var src = new URLSearchParams(window.location.search).get("src") || "";
+      return src.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40) || null;
+    } catch (e) { return null; }
+  }
 
   function activeSteps() { return STEPS.filter(function (s) { return s.visible(state.answers); }); }
 
@@ -749,6 +763,7 @@
       '<div class="thanks-check">✓</div>' +
       '<h1 class="step-title">Thank you!</h1>' +
       '<p class="step-sub">Your answers were saved. This genuinely helps us build the right thing before we build anything at all.</p>' +
+      ((state.answers.contactInfo || "").trim() ? '<p class="step-sub">We’ll email you the results once enough parents have answered.</p>' : '') +
       '</div></div>'
     );
   }
@@ -835,7 +850,8 @@
       price_good_value: a.priceGoodValue || "", price_too_cheap: a.priceTooCheap || "",
       format_pref: rankedFirst(a.formatRanks) || "", format_ranks: a.formatRanks || null,
       format_other: a.formatOther || "",
-      contact_name: a.contactName || "", contact_info: a.contactInfo || ""
+      contact_name: a.contactName || "", contact_info: a.contactInfo || "",
+      source: SOURCE
     };
   }
 
