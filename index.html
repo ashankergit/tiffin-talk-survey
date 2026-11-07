@@ -723,6 +723,54 @@
     } catch (e) { return null; }
   }
 
+  // Anonymous funnel tracking (KVI-28): a random per-tab visit id plus the step reached.
+  // No answers, IP or device data. Fire-and-forget: a tracking failure never affects the survey.
+  var VISIT_ID = readVisitId();
+  var tracked = {};
+
+  function newUuid() {
+    try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === "x" ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function readVisitId() {
+    var id = null;
+    try { id = sessionStorage.getItem("tt_visit_id"); } catch (e) {}
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+      id = newUuid();
+      try { sessionStorage.setItem("tt_visit_id", id); } catch (e) {}
+    }
+    return id;
+  }
+
+  function track(event, stepId, detail, once) {
+    try {
+      var key = event + ":" + (stepId || "");
+      if (once) { if (tracked[key]) return; tracked[key] = true; }
+      var steps = activeSteps();
+      var idx = -1;
+      steps.forEach(function (s, i) { if (s.id === stepId) idx = i; });
+      fetch(SUPABASE_URL + "/rest/v1/survey_events", {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          visit_id: VISIT_ID, event: event, step: stepId || null,
+          step_no: idx >= 0 ? idx + 1 : null, steps_total: steps.length,
+          source: SOURCE, detail: detail ? String(detail).slice(0, 200) : null
+        })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   function activeSteps() { return STEPS.filter(function (s) { return s.visible(state.answers); }); }
 
   function render() {
@@ -736,6 +784,7 @@
     var steps = activeSteps();
     var step = steps[state.stepIndex];
     var pct = Math.round(((state.stepIndex) / (steps.length - 1)) * 100);
+    track("step", step.id, null, true);
 
     var html =
       '<div class="brandbar"><span class="mark">Tiffin<span>Talk</span></span><span class="tag">parent survey</span></div>' +
@@ -825,7 +874,7 @@
     var steps = activeSteps();
     var step = steps[state.stepIndex];
     var err = step.validate(state.answers);
-    if (err) { submitError = err; render(); return; }
+    if (err) { track("invalid", step.id, null, true); submitError = err; render(); return; }
     submitError = "";
     if (state.stepIndex < steps.length - 1) {
       state.stepIndex += 1;
@@ -851,7 +900,8 @@
       format_pref: rankedFirst(a.formatRanks) || "", format_ranks: a.formatRanks || null,
       format_other: a.formatOther || "",
       contact_name: a.contactName || "", contact_info: a.contactInfo || "",
-      source: SOURCE
+      source: SOURCE,
+      visit_id: VISIT_ID
     };
   }
 
@@ -880,8 +930,10 @@
       }
       submitting = false;
       submittedOk = true;
+      track("submit_ok", "contact");
       render();
     } catch (e) {
+      track("submit_fail", "contact", e && e.message);
       submitting = false;
       submitError = "Couldn't save your response. Please check your connection and tap Submit again.";
       render();
